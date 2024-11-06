@@ -53,6 +53,12 @@ en Colombia, enviada en noviembre de 2024.
 	replace estu_segundonombre = "MARIANA" if estu_primernombre == "1025531895"
 	replace estu_primernombre = "ALICE" if estu_primernombre == "1025531895"
 	
+	// Formateo nombre
+	replace estu_primernombre = proper(estu_primernombre)
+	
+	// Renombrar variable celular
+	rename cel cellphone
+	
 	// borrar numeros con digitos repetidos
 	// todos los que empiezan en 3
 	// solo 10 digitos
@@ -81,7 +87,7 @@ en Colombia, enviada en noviembre de 2024.
 	save `sample_a_encuestar', replace
 	restore
 
-	merge 1:1 cel using `sample_a_encuestar'
+	merge 1:1 cellphone using `sample_a_encuestar'
 	gen estudiante_a_encuestar = 1 if _merge == 3
 	drop _merge
 	
@@ -90,31 +96,52 @@ en Colombia, enviada en noviembre de 2024.
 	// Muestra 200k	
 }
 
+
 // Output
-{		
+{			
 	// muestra completa (encuestados y no encuestados)
 	export delimited "$directorio/Outputs/students/base_procesada_2024.csv", replace
-		
+			
 	// Mantener variables relevantes 
-	keep estu_primernombre estu_segundonombre cel estudiante_a_encuestar
+	keep cellphone estu_primernombre estudiante_a_encuestar
 	
 	// Muestra a encuestar
 	keep if estudiante_a_encuestar == 1
 	drop estudiante_a_encuestar
 	
-	// Muestra a encuestar completa
-	export delimited "$directorio/Outputs/envio/base_envio_2024_completa.csv", replace
-	
+	// Crear indicador de la muestra completa
+	gen id = _n
+			
 	// Muestra a encuestar por partes
 	// Step 1: Generate a grouping variable that divides the dataset into 10 equal parts
 	gen group = ceil(_n / ( _N / 10))
+	
+	order id cellphone estu_primernombre group
+		
+	// Muestra a encuestar completa
+	export delimited "$directorio/Outputs/envio/base_envio_2024_completa.csv", replace
+
+	drop id
 
 	// Step 2: Loop over each group and save it as a separate file
 	forvalues i = 1/10 {
 		preserve
 		keep if group == `i'
 		drop group
+		
+		// Cargar observacion Mauro
+		{
+		   append using "$directorio/Inputs/students/test_Mauricio.dta"
+		}
+		
+		// Crear indicador del sample
+		gen id = _n
+		
+		order id cellphone estu_primernombre
+		
 		export delimited "$directorio/Outputs/envio/base_envio_2024_parte`i'.csv", replace
 		restore
 	}
+	
+	// Una vez generadas las bases se renombra "estu_primernombre" con "1" para todas las bases
 }
