@@ -13,7 +13,7 @@ en Colombia, enviada en noviembre de 2024.
 
 // Inputs 
 {
-	import excel "$directorio/Inputs/student/base_inscritos_2024.xlsx", clear firstrow
+	import excel "$directorio/Inputs/students/base_inscritos_2024.xlsx", clear firstrow
 }
 
 // Data edit
@@ -93,7 +93,7 @@ en Colombia, enviada en noviembre de 2024.
 // Output
 {		
 	// muestra completa (encuestados y no encuestados)
-	export delimited "$directorio/Outputs/student/base_procesada_2024.csv", replace
+	export delimited "$directorio/Outputs/students/base_procesada_2024.csv", replace
 		
 	// Mantener variables relevantes 
 	keep estu_primernombre estu_segundonombre cel
