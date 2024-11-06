@@ -96,10 +96,11 @@ en Colombia, enviada en noviembre de 2024.
 	export delimited "$directorio/Outputs/students/base_procesada_2024.csv", replace
 		
 	// Mantener variables relevantes 
-	keep estu_primernombre estu_segundonombre cel
+	keep estu_primernombre estu_segundonombre cel estudiante_a_encuestar
 	
 	// Muestra a encuestar
 	keep if estudiante_a_encuestar == 1
+	drop estudiante_a_encuestar
 	
 	// Muestra a encuestar completa
 	export delimited "$directorio/Outputs/envio/base_envio_2024_completa.csv", replace
