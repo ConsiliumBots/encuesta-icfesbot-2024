@@ -3,11 +3,7 @@ import matplotlib.pyplot as plt
 import re
 from matplotlib.cm import get_cmap
 
-
-############# Número encuestas respondidas según departamento
-
-import pandas as pd
-import re
+############# Número encuestas respondidas según departamento: Tabla
 
 # Define the path to data
 path = '/Users/ignaciolepe/ConsiliumBots Dropbox/ConsiliumBots/Projects/Colombia/Icfesbot/2024/Data'
@@ -73,36 +69,104 @@ df['dept_name'] = df['estu_cod_reside_depto'].map(dept_mapping)
 # Add "Sin departamento" for entries with missing department mapping
 df['dept_name'].fillna('Sin departamento', inplace=True)
 
-# Calculate the total number of surveyed individuals (*encuestados*) by department
-total_surveyed = df.groupby('dept_name')['phone'].nunique().reset_index(name='Total Encuestados')
+# Identify first and last question responses
+first_question = 'P1'
+last_question = 'P14'
 
-# Calculate fractions for all departments
-total_surveyed['Fraction'] = total_surveyed['Total Encuestados'] / total_surveyed['Total Encuestados'].sum()
+# Calculate metrics
+total_surveyed = df.groupby('dept_name')['phone'].nunique().reset_index(name='Total Encuestados')
+first_question_responses = df[df['node_start'] == first_question].groupby('dept_name')['phone'].nunique().reset_index(name='Primera Pregunta')
+last_question_responses = df[df['node_start'] == last_question].groupby('dept_name')['phone'].nunique().reset_index(name='Última Pregunta')
+
+# Merge all metrics into one summary table
+summary_table = pd.merge(total_surveyed, first_question_responses, on='dept_name', how='outer')
+summary_table = pd.merge(summary_table, last_question_responses, on='dept_name', how='outer')
+
+# Replace NaN with 0 for response counts
+summary_table.fillna(0, inplace=True)
+
+# Calculate percentages for each metric and round to one decimal place
+summary_table['% Total Encuestados'] = (summary_table['Total Encuestados'] / summary_table['Total Encuestados'].sum() * 100).round(1)
+summary_table['% Primera Pregunta'] = (summary_table['Primera Pregunta'] / summary_table['Primera Pregunta'].sum() * 100).round(1)
+summary_table['% Última Pregunta'] = (summary_table['Última Pregunta'] / summary_table['Última Pregunta'].sum() * 100).round(1)
 
 # Sort the table from highest to lowest by "Total Encuestados"
-summary_table = total_surveyed.sort_values(by='Total Encuestados', ascending=False)
+summary_table = summary_table.sort_values(by='Total Encuestados', ascending=False)
 
 # Add a row for "Total"
 total_row = pd.DataFrame({
     'dept_name': ['Total'], 
-    'Total Encuestados': [summary_table['Total Encuestados'].sum()], 
-    'Fraction': [summary_table['Fraction'].sum()]
+    'Total Encuestados': [summary_table['Total Encuestados'].sum()],
+    'Primera Pregunta': [summary_table['Primera Pregunta'].sum()],
+    'Última Pregunta': [summary_table['Última Pregunta'].sum()],
+    '% Total Encuestados': [100],
+    '% Primera Pregunta': [100],
+    '% Última Pregunta': [100]
 })
 summary_table = pd.concat([summary_table, total_row], ignore_index=True)
-
-# Format fraction as percentage
-summary_table['Fraction'] = summary_table['Fraction'].apply(lambda x: f"{x:.2%}" if pd.notnull(x) else x)
 
 # Rename columns for final output
 summary_table.rename(columns={'dept_name': 'Departamento'}, inplace=True)
 
-# Keep only required columns
-summary_table = summary_table[['Departamento', 'Total Encuestados', 'Fraction']]
-
 # Save table to CSV
-output_table_path = path + '/Outputs/analisis_resultados_encuesta/Whatsapp/table_surveyed_with_department.csv'
+output_table_path = path + '/Outputs/analisis_resultados_encuesta/Whatsapp/table_surveyed_with_first_last.csv'
 summary_table.to_csv(output_table_path, index=False)
 print(f"Summary table saved to {output_table_path}")
+
+
+
+############# Número encuestas respondidas según departamento: Gráfico
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Update the department mapping for shorter labels
+dept_mapping["88"] = "SAN ANDRÉS"
+
+# Update the labels in the summary table
+summary_table['Departamento'] = summary_table['Departamento'].replace("ARCHIPIÉLAGO DE SAN ANDRÉS. PROVIDENCIA Y SANTA CATALINA", "SAN ANDRÉS")
+
+# Exclude the total row for visualization
+plot_data = summary_table[summary_table['Departamento'] != 'Total']
+
+# Set the figure size
+plt.figure(figsize=(16, 8))
+
+# Define the width of each group and x-axis positions
+bar_width = 0.25
+x = np.arange(len(plot_data['Departamento']))
+
+# Plot the bars for Total Encuestados, Primera Pregunta, and Última Pregunta
+plt.bar(x, plot_data['Total Encuestados'], width=bar_width, label='Total Encuestados', color='skyblue', edgecolor='black')
+plt.bar(x + bar_width, plot_data['Primera Pregunta'], width=bar_width, label='Primera Pregunta', color='green', edgecolor='black')
+plt.bar(x + 2 * bar_width, plot_data['Última Pregunta'], width=bar_width, label='Última Pregunta', color='orange', edgecolor='black')
+
+# Add the percentage values above each bar with smaller text
+for idx, row in plot_data.iterrows():
+    plt.text(x[idx], row['Total Encuestados'] + 10, f"{row['% Total Encuestados']}%", ha='center', fontsize=8)
+    plt.text(x[idx] + bar_width, row['Primera Pregunta'] + 10, f"{row['% Primera Pregunta']}%", ha='center', fontsize=8)
+    plt.text(x[idx] + 2 * bar_width, row['Última Pregunta'] + 10, f"{row['% Última Pregunta']}%", ha='center', fontsize=8)
+
+# Add labels and title
+plt.title("Encuestas Respondidas por Departamento", fontsize=16)
+plt.xlabel("Departamento", fontsize=14)
+plt.ylabel("Número de Encuestados", fontsize=14)
+plt.xticks(x + bar_width, plot_data['Departamento'], rotation=45, ha='right', fontsize=10)
+
+# Add legend
+plt.legend()
+
+# Display the grid
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Save and show the plot
+output_plot_path = path + '/Outputs/analisis_resultados_encuesta/Whatsapp/plot_surveyed_by_department_grouped_bar.png'
+plt.tight_layout()
+plt.savefig(output_plot_path, format="png", dpi=300)
+plt.show()
+
+print(f"Plot saved to {output_plot_path}")
+
 
 
 ############# Respuesta a cada pregunta según departamento
